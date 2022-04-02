@@ -1,0 +1,14 @@
+[features]
+seeds = false
+[programs.devnet]
+vestor_using_anchor_chainlink_master = "AzZzWJ8U5F6PJ46Y6umvJTYrE2tVGn1axBYfUeqvtNzm"
+
+[registry]
+url = "https://anchor.projectserum.com"
+
+[provider]
+cluster = "devnet"
+wallet = "/Users/aadyakalra/.config/solana/id.json"
+
+[scripts]
+test = "yarn run mocha -t 1000000 tests/"
