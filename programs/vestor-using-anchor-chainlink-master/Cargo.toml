@@ -1,0 +1,22 @@
+[package]
+name = "vestor-using-anchor-chainlink-master"
+version = "0.1.0"
+description = "Created with Anchor"
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "vestor_using_anchor_chainlink_master"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = { version = "0.22.1", features = ["init-if-needed"]}
+anchor-spl = "0.22.1"
+chainlink_solana = "0.1.0"
+spl-token = { version = "3.1.1", features = ["no-entrypoint"] }
