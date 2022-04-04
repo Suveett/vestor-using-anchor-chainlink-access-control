@@ -32,43 +32,51 @@ describe("vestor-using-anchor-chainlink-master", () => {
 
   let mint = null;
   let claimantReceiveTokenVault = null;
-  let grantorDepositTokenVault = null;
+  let contractOwnerDepositTokenVault = null;
+  let ticketCreatorDepositTokenVault = null;
   let claimant = anchor.web3.Keypair.generate();
+  let ticket = anchor.web3.Keypair.generate();
+  let vault = anchor.web3.Keypair.generate();
+  let signer = null;
 
 
   it("Initialize the test state and Creates All Accounts", async () => {
 
     //Discover/find the 'vestor PDA' publicKey through off-chain computation using Pubkey::find_program_address
     const [vestor, nonce] = await anchor.web3.PublicKey.findProgramAddress(
-      [Buffer.from("vesting__init"), provider.wallet.publicKey.toBuffer()],
+      [Buffer.from("vesting_init"), provider.wallet.publicKey.toBuffer()],
       program.programId
     );
 
     mint = await createMint(provider);
     console.log("Mint Info : ", await getMintInfo(provider, mint));
 
-    grantorDepositTokenVault = await createTokenAccount(provider, mint, provider.wallet.publicKey);
-    console.log("Grantor Deposit Token vault created : ", await getTokenAccount(provider, grantorDepositTokenVault));
+    contractOwnerDepositTokenVault = await createTokenAccount(provider, mint, provider.wallet.publicKey);
+    console.log("ContractOwner Deposit Token vault created : ", await getTokenAccount(provider, contractOwnerDepositTokenVault));
+
+    ticketCreatorDepositTokenVault = await createTokenAccount(provider, mint, provider.wallet.publicKey);
+    console.log("TicketCreator Deposit Token vault created : ", await getTokenAccount(provider, ticketCreatorDepositTokenVault));
 
     claimantReceiveTokenVault = await createTokenAccount(provider, mint, claimant.publicKey);
     console.log("Claimant Receive Token vault created : ", await getTokenAccount(provider, claimantReceiveTokenVault));
 
     // #[access_control] will check if expected_publicKey == actual_publicKey and therefore restrict anybody else's
-    // access to use this 'Initialize' fn..
+    // access to use this 'Initialize' fn other than the Contract Owner..
     const mint_to_tx = await program.rpc.initializeTestState(new anchor.BN(10000e8), new anchor.BN(nonce), {
       accounts: {
         vestor: vestor,
-        grantor: provider.wallet.publicKey,
+        contractOwnerDepositTokenVault: contractOwnerDepositTokenVault,
+        owner : provider.wallet.publicKey,
         tokenMint: mint,
-        grantorDepositTokenVault: grantorDepositTokenVault,
+        ticketCreatorDepositTokenVault: ticketCreatorDepositTokenVault,
         tokenProgram: TokenInstructions.TOKEN_PROGRAM_ID,
-        systemProgram: anchor.web3.SystemProgram.programId,
+        
       },
     });
 
-    console.log("Minting 10000 tokens to Grantor Token Vault, here's the signature : ", mint_to_tx);
+    console.log("Minted 10000 tokens to ContractOwnerDepositToken Vault and transferred 1000 tokens to TicketCreatorDepositTokenVault, here's the signature : ", mint_to_tx);
 
-    //Now lets check if the Grantor(public Key = provider.wallet.publicKey == solana-keygen pubkey ) 
+    //Now lets check if the TicketCreator(public Key = provider.wallet.publicKey == solana-keygen pubkey ) 
     //actually holds these 10000 'mint' tokens on the Blockchain
 
     const tokenAccounts = await connection.getTokenAccountsByOwner(
@@ -87,29 +95,42 @@ describe("vestor-using-anchor-chainlink-master", () => {
 
   });
 
+
   it("Creates a new Ticket for Vesting with Schedule", async () => {
 
     // Discover/find the 'ticket' publicKey based on vestor.key.as_ref()
-    const [ticket, bump] = await anchor.web3.PublicKey.findProgramAddress(
-      [Buffer.from(anchor.utils.bytes.utf8.encode("init_____ticket"))],
+    const [_signer, bump] = await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from("signer"), ticket.publicKey.toBuffer()],
+      program.programId
+    );
+    
+    signer = _signer;
+    let signerOwnedVault = await createTokenAccount(provider, mint, vault.publicKey);
+    console.log("Temporary Token vault created : ", await getTokenAccount(provider, signerOwnedVault));
+
+    //Discover/find the 'vestor PDA' publicKey through off-chain computation using Pubkey::find_program_address
+    const [vestor, nonce] = await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from("vesting_init"), provider.wallet.publicKey.toBuffer()],
       program.programId
     );
 
-    //Now lets register the Ticket Account with a specified vesting period
+    
     await program.rpc.createTicket(
       claimant.publicKey,
       new anchor.BN(50),
       new anchor.BN(65),
-      new anchor.BN(5000),
+      new anchor.BN(1000e8),
       new anchor.BN(bump),
       false, {
       accounts: {
-        ticket: ticket,
-        tokenMint: mint,
-        grantorDepositTokenVault: grantorDepositTokenVault,
-        grantor: provider.wallet.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
+        ticket: ticket.publicKey,
+        owner : provider.wallet.publicKey,
+        signer : signer,
+        ticketCreatorDepositTokenVault: ticketCreatorDepositTokenVault,
+        vault : signerOwnedVault,
+        claimantReceiveTokenVault : claimantReceiveTokenVault,
         tokenProgram: TOKEN_PROGRAM_ID,
+        vestor : vestor.publicKey
 
       }
     });
@@ -209,5 +230,7 @@ async function getTokenAccount(provider, addr) {
 async function getMintInfo(provider, mintAddr) {
   return await serumCmn.getMintInfo(provider, mintAddr);
 }
+
+
 
 
