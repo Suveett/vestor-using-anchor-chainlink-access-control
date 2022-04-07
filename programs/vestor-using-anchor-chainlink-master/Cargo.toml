@@ -20,3 +20,4 @@ anchor-lang = { version = "0.22.1", features = ["init-if-needed"]}
 anchor-spl = "0.22.1"
 chainlink_solana = "0.1.0"
 spl-token = { version = "3.1.1", features = ["no-entrypoint"] }
+pyth-client = {version = "0.5.0", features = ["no-entrypoint"]}
